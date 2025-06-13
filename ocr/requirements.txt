@@ -1,0 +1,6 @@
+opencv-python>=4.5
+numpy>=1.21
+easyocr>=1.6
+scikit-learn>=1.0
+python-telegram-bot>=20.0
+flask>=2.0

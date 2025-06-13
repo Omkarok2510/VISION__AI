@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Haier Service Dashboard</title>
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIINfQRevjFayPJyWfT8DOfNDQfTK7+waCk=" crossorigin=""/>
+    <style>
+        /* General Body Styles */
+        body {
+            font-family: 'Inter', sans-serif; /* Using Inter font */
+            margin: 20px;
+            background-color: #f0f2f5; /* Lighter background */
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px; /* More rounded corners */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); /* Softer shadow */
+        }
+
+        /* Headings */
+        h1, h2 {
+            color: #1a73e8; /* Google Blue-like color for headings */
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0; /* Subtle underline */
+            padding-bottom: 10px;
+        }
+
+        /* Stats Section */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px; /* Gap between stat cards */
+            margin-bottom: 30px;
+            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #e6f2ff, #cce0ff); /* Gradient background */
+            padding: 20px;
+            border-radius: 10px; /* Rounded corners for cards */
+            text-align: center;
+            flex: 1; /* Flex item to take available space */
+            min-width: 250px; /* Minimum width before wrapping */
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Soft shadow */
+            transition: transform 0.2s ease-in-out; /* Hover effect */
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px); /* Lift effect on hover */
+        }
+
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #0056b3;
+            font-size: 1.1em;
+        }
+
+        .stat-card p {
+            font-size: 1.8em; /* Larger font for stats */
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        /* Map Styles */
+        #technician-map {
+            height: 500px; /* Fixed height for the map */
+            width: 100%;
+            border-radius: 8px; /* Rounded corners for the map */
+            margin-bottom: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: separate; /* Use separate for rounded corners on cells */
+            border-spacing: 0;
+            margin-top: 20px;
+            border-radius: 8px; /* Rounded corners for the whole table */
+            overflow: hidden; /* Ensures content respects border-radius */
+        }
+
+        th, td {
+            border: 1px solid #e0e0e0; /* Lighter border */
+            padding: 12px 15px; /* More padding */
+            text-align: left;
+        }
+
+        th {
+            background-color: #1a73e8; /* Google Blue-like header */
+            color: white;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8fafd; /* Very light subtle stripe */
+        }
+        tr:hover {
+            background-color: #e6f2ff; /* Highlight on hover */
+            transition: background-color 0.15s ease-in-out;
+        }
+
+        /* Status Colors */
+        .status-pending { color: #ff9800; font-weight: bold; } /* Orange */
+        .status-resolved { color: #4caf50; font-weight: bold; } /* Green */
+        .status-assigned { color: #2196f3; font-weight: bold; } /* Blue */
+        .status-pending_assignment { color: #607d8b; font-weight: bold; } /* Grey-ish for pending assignment */
+
+        /* Blockchain Status Box */
+        .blockchain-status {
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+        }
+
+        .blockchain-valid {
+            background-color: #e8f5e9; /* Light green */
+            color: #2e7d32; /* Darker green text */
+            border: 1px solid #c8e6c9;
+        }
+
+        .blockchain-invalid {
+            background-color: #ffebee; /* Light red */
+            color: #d32f2f; /* Darker red text */
+            border: 1px solid #ffcdd2;
+        }
+
+        /* Media Link Styling */
+        a {
+            color: #1a73e8;
+            text-decoration: none;
+            transition: color 0.2s ease-in-out;
+        }
+        a:hover {
+            color: #0d47a1;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Haier Service Operations Dashboard</h1>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Complaints</h3>
+                <p id="total-complaints-stat">{{ complaints|length }}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Available Technicians</h3>
+                <p id="available-technicians-stat">{{ technicians | selectattr('status', 'equalto', 'available') | list | length }} / {{ technicians|length }}</p>
+            </div>
+            <div class="stat-card">
+                <h3>Blockchain Length</h3>
+                <p id="blockchain-length-stat">{{ blockchain_status }}</p>
+            </div>
+        </div>
+
+        <div class="blockchain-status {% if blockchain_valid %}blockchain-valid{% else %}blockchain-invalid{% endif %}" id="blockchain-integrity-status">
+            Blockchain Integrity: {% if blockchain_valid %}Valid ✅{% else %}Compromised ❌{% endif %}
+        </div>
+
+        <h2>Technician Locations Map</h2>
+        <div id="technician-map"></div> <!-- Map container -->
+
+        <h2>Recent Complaints</h2>
+        <table id="complaints-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Chat ID</th>
+                    <th>Problem</th>
+                    <th>Error Code</th>
+                    <th>Address</th>
+                    <th>Contact No</th>
+                    <th>Assigned Technician</th>
+                    <th>Media Path</th>
+                    <th>Timestamp</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Complaints will be loaded here dynamically on refresh -->
+                {% for complaint in complaints %}
+                <tr>
+                    <td>{{ complaint.id }}</td>
+                    <td>{{ complaint.chat_id }}</td>
+                    <td>{{ complaint.problem }}</td>
+                    <td>{{ complaint.error_code | default('N/A') }}</td>
+                    <td>{{ complaint.address }}</td>
+                    <td>{{ complaint.contact_no }}</td>
+                    <td>{{ complaint.assigned_technician_name | default('Not Assigned') }}</td>
+                    <td>
+                        {% if complaint.media_path %}
+                            <a href="{{ url_for('static', filename=complaint.media_path.split('/')[-1]) }}" target="_blank">View Media</a>
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>{{ complaint.timestamp }}</td>
+                    <td class="status-{{ complaint.status }}">{{ complaint.status | replace('_', ' ') | capitalize }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <h2>Technician Status List</h2>
+        <table id="technicians-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Specialization</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Technicians will be loaded here dynamically on refresh -->
+                {% for tech in technicians %}
+                <tr>
+                    <td>{{ tech.id }}</td>
+                    <td>{{ tech.name }}</td>
+                    <td>{{ tech.contact_no }}</td>
+                    <td>{{ tech.status | capitalize }}</td>
+                    <td>{{ tech.specialization }}</td>
+                    <td>{{ tech.latitude }}</td>
+                    <td>{{ tech.longitude }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20n6qqzJRz6rT2mzCE3XtN7Cb/U+o+hLxSY+gwTP0wQ=" crossorigin=""></script>
+
+    <script>
+        let map; // Declare map globally
+        let technicianMarkers = L.featureGroup(); // Group to manage markers
+        let availableTechniciansCount = 0;
+        let totalTechniciansCount = 0;
+
+        // Define custom icons for available (green) and busy (red) technicians
+        const greenIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,' + btoa(
+                '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                '<circle cx="9" cy="9" r="8" fill="#4CAF50" stroke="#FFF" stroke-width="1.5"/>' + /* Green circle */
+                '<circle cx="9" cy="9" r="3" fill="#FFF"/>' + /* Small white center dot */
+                '</svg>'
+            ),
+            iconSize: [18, 18], // size of the icon
+            iconAnchor: [9, 9], // point of the icon which will correspond to marker's location
+            popupAnchor: [0, -10] // point from which the popup should open relative to the iconAnchor
+        });
+
+        const redIcon = L.icon({
+            iconUrl: 'data:image/svg+xml;base64,' + btoa(
+                '<svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                '<circle cx="9" cy="9" r="8" fill="#F44336" stroke="#FFF" stroke-width="1.5"/>' + /* Red circle */
+                '<circle cx="9" cy="9" r="3" fill="#FFF"/>' + /* Small white center dot */
+                '</svg>'
+            ),
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+            popupAnchor: [0, -10]
+        });
+
+        // Function to initialize the map only once
+        function initMap() {
+            // Pune coordinates (approximate center)
+            const puneLat = 18.5204;
+            const puneLon = 73.8567;
+            map = L.map('technician-map').setView([puneLat, puneLon], 12); // Zoom level 12
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+
+            // Add the feature group to the map
+            technicianMarkers.addTo(map);
+        }
+
+        // Function to fetch and update dashboard data (map, stats, tables)
+        async function updateDashboardData() {
+            try {
+                // Fetch live technician data
+                const techResponse = await fetch('/api/technicians_live');
+                if (!techResponse.ok) {
+                    throw new Error(`HTTP error! status: ${techResponse.status}`);
+                }
+                const techData = await techResponse.json();
+                const technicians = techData.technicians;
+
+                // Fetch live complaints data (to update the complaints table and total complaints stat)
+                const complaintsResponse = await fetch('/api/complaints');
+                if (!complaintsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${complaintsResponse.status}`);
+                }
+                const complaintsData = await complaintsResponse.json();
+                const complaints = complaintsData.complaints;
+
+                // Fetch blockchain status
+                const blockchainResponse = await fetch('/api/verify_blockchain');
+                if (!blockchainResponse.ok) {
+                    throw new Error(`HTTP error! status: ${blockchainResponse.status}`);
+                }
+                const blockchainStatus = await blockchainResponse.json();
+
+                // --- Update Map Markers ---
+                technicianMarkers.clearLayers(); // Clear existing markers
+
+                availableTechniciansCount = 0;
+                totalTechniciansCount = technicians.length;
+
+                technicians.forEach(tech => {
+                    if (tech.latitude && tech.longitude) { // Ensure coordinates exist
+                        const icon = tech.status === 'available' ? greenIcon : redIcon;
+                        if (tech.status === 'available') {
+                            availableTechniciansCount++;
+                        }
+                        
+                        const popupContent = `
+                            <b>${tech.name}</b><br>
+                            Contact: ${tech.contact_no}<br>
+                            Status: ${tech.status.charAt(0).toUpperCase() + tech.status.slice(1)}<br>
+                            Specialization: ${tech.specialization}<br>
+                            Lat: ${tech.latitude}, Lon: ${tech.longitude}
+                        `;
+                        L.marker([tech.latitude, tech.longitude], { icon: icon })
+                            .addTo(technicianMarkers) // Add to feature group
+                            .bindPopup(popupContent);
+                    }
+                });
+
+                // --- Update Stats Cards ---
+                document.getElementById('total-complaints-stat').innerText = complaints.length;
+                document.getElementById('available-technicians-stat').innerText = `${availableTechniciansCount} / ${totalTechniciansCount}`;
+                document.getElementById('blockchain-length-stat').innerText = blockchainStatus.chain_length;
+                
+                const blockchainIntegrityDiv = document.getElementById('blockchain-integrity-status');
+                blockchainIntegrityDiv.innerHTML = `Blockchain Integrity: ${blockchainStatus.valid ? 'Valid ✅' : 'Compromised ❌'}`;
+                blockchainIntegrityDiv.className = `blockchain-status ${blockchainStatus.valid ? 'blockchain-valid' : 'blockchain-invalid'}`;
+
+
+                // --- Update Complaints Table ---
+                const complaintsTableBody = document.querySelector('#complaints-table tbody');
+                complaintsTableBody.innerHTML = ''; // Clear existing rows
+                complaints.forEach(complaint => {
+                    const row = complaintsTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${complaint.id}</td>
+                        <td>${complaint.chat_id}</td>
+                        <td>${complaint.problem}</td>
+                        <td>${complaint.error_code || 'N/A'}</td>
+                        <td>${complaint.address}</td>
+                        <td>${complaint.contact_no}</td>
+                        <td>${complaint.assigned_technician_name || 'Not Assigned'}</td>
+                        <td>
+                            ${complaint.media_path ? `<a href="/static/${complaint.media_path.split('/').pop()}" target="_blank">View Media</a>` : 'N/A'}
+                        </td>
+                        <td>${complaint.timestamp}</td>
+                        <td class="status-${complaint.status}">${(complaint.status || '').replace('_', ' ').charAt(0).toUpperCase() + (complaint.status || '').replace('_', ' ').slice(1)}</td>
+                    `;
+                });
+
+                // --- Update Technicians List Table ---
+                const techniciansTableBody = document.querySelector('#technicians-table tbody');
+                techniciansTableBody.innerHTML = ''; // Clear existing rows
+                technicians.forEach(tech => {
+                    const row = techniciansTableBody.insertRow();
+                    row.innerHTML = `
+                        <td>${tech.id}</td>
+                        <td>${tech.name}</td>
+                        <td>${tech.contact_no}</td>
+                        <td>${tech.status.charAt(0).toUpperCase() + tech.status.slice(1)}</td>
+                        <td>${tech.specialization}</td>
+                        <td>${tech.latitude}</td>
+                        <td>${tech.longitude}</td>
+                    `;
+                });
+
+                // Invalidate map size after data update to ensure it renders correctly
+                // This is a common workaround for maps that might not render correctly when their container's dimensions
+                // are not fully established at the time of initialization.
+                setTimeout(() => {
+                    if (map) { // Check if map object exists
+                        map.invalidateSize();
+                    }
+                }, 100);
+
+            } catch (error) {
+                console.error("Error fetching or updating dashboard data:", error);
+            }
+        }
+
+        // Initialize the map once the DOM content is fully loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            initMap(); // Initialize the base map once
+            updateDashboardData(); // Initial data fetch and render
+            // Set interval for live updates (e.g., every 5 seconds)
+            setInterval(updateDashboardData, 5000); // Fetch and update every 5 seconds
+        });
+
+        // Invalidate map size on window resize to ensure it redraws correctly
+        window.addEventListener('resize', function() {
+            if (map) { // Check if map object exists
+                map.invalidateSize();
+            }
+        });
+    </script>
+</body>
+</html>
