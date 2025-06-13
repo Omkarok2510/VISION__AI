@@ -1,6 +1,5 @@
 # VISION__AI
-
-## Live Dashboard Updates
+![Dashboard Screenshot](https://github.com/Omkarok2510/VISION__AI/blob/main/Screenshot%202025-06-09%20170903.png?raw=true)## Live Dashboard Updates
 All dashboard data (map, stats, tables) refreshes automatically every 5 seconds.
 
 ## 🛠️ Technologies Used
@@ -9,6 +8,8 @@ All dashboard data (map, stats, tables) refreshes automatically every 5 seconds.
 **Telegram Bot:** python-telegram-bot library, OpenCV (cv2), numpy, Pillow (PIL)
 
 **Frontend (Dashboard):** HTML, CSS, JavaScript, Leaflet.js (for maps), Jinja2 (templating in Flask)
+![Dashboard Screenshot](https://github.com/Omkarok2510/VISION__AI/blob/main/Screenshot%202025-06-09%20170829.png?raw=true)]## Live Dashboard Updates
+
 
 **Deployment/Tunneling:** Ngrok (for exposing local Flask server to Telegram)
 
@@ -112,7 +113,3 @@ This README includes:
 4. Detailed setup instructions
 5. Important notes about configuration
 6. Clear steps for running the application
-
-The formatting uses proper Markdown syntax for GitHub readability, with code blocks, lists, and section headers. You can copy this directly into your repository's README.md file.
-
-### The formatting uses proper Markdown syntax for GitHub readability, with code blocks, lists, and section headers. You can copy this directly into your repository's README.md file.
